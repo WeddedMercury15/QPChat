@@ -23,7 +23,6 @@ function fileToInput(file: File): HTMLInputElement {
 export function useFileUploadWithStatus(chatId: string) {
   const files = ref<FileWithStatus[]>([])
   const toast = useToast()
-  const { loggedIn } = useUserSession()
 
   const { csrf, headerName } = useCsrf()
 
@@ -33,10 +32,6 @@ export function useFileUploadWithStatus(chatId: string) {
   })
 
   async function uploadFiles(newFiles: File[]) {
-    if (!loggedIn.value) {
-      return
-    }
-
     const filesWithStatus: FileWithStatus[] = newFiles.map(file => ({
       file,
       id: crypto.randomUUID(),

@@ -4,13 +4,13 @@ import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 
 export default defineEventHandler(async (event) => {
-  const { user } = await requireUserSession(event)
+  const session = await getUserSession(event)
 
   const { chatId } = await getValidatedRouterParams(event, z.object({
     chatId: z.string()
   }).parse)
 
-  const userId = user.id
+  const userId = session.user?.id || session.id
 
   const chat = await db.query.chats.findFirst({
     where: () => eq(schema.chats.id, chatId)
@@ -23,7 +23,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const username = user.username
+  const namespace = session.user?.username || session.id
 
   return blob.handleUpload(event, {
     formKey: 'files',
@@ -34,7 +34,7 @@ export default defineEventHandler(async (event) => {
     },
     put: {
       addRandomSuffix: true,
-      prefix: `${username}/${chatId}`
+      prefix: `${namespace}/${chatId}`
     }
   })
 })

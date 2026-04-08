@@ -4,7 +4,6 @@ import { LazyModalConfirm } from '#components'
 const route = useRoute()
 const toast = useToast()
 const overlay = useOverlay()
-const { loggedIn, openInPopup } = useUserSession()
 const { csrf, headerName } = useCsrf()
 
 const open = ref(false)
@@ -33,12 +32,6 @@ onNuxtReady(async () => {
     // prefetch the chat and let the browser cache it
     await $fetch(`/api/chats/${chat.id}`)
   }
-})
-
-watch(loggedIn, () => {
-  refreshChats()
-
-  open.value = false
 })
 
 const { groups } = useChats(chats)
@@ -147,18 +140,7 @@ defineShortcuts({
         </UNavigationMenu>
       </template>
 
-      <template #footer="{ collapsed }">
-        <UserMenu v-if="loggedIn" :collapsed="collapsed" />
-        <UButton
-          v-else
-          :label="collapsed ? '' : 'Login with GitHub'"
-          icon="i-simple-icons-github"
-          color="neutral"
-          variant="ghost"
-          class="w-full"
-          @click="openInPopup('/auth/github')"
-        />
-      </template>
+      <template #footer />
     </UDashboardSidebar>
 
     <UDashboardSearch
