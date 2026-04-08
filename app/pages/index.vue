@@ -59,37 +59,6 @@ async function onSubmit() {
   await createChat(input.value)
   clearFiles()
 }
-
-const quickChats = [
-  {
-    label: 'Why use Nuxt UI?',
-    icon: 'i-logos-nuxt-icon'
-  },
-  {
-    label: 'Help me create a Vue composable',
-    icon: 'i-logos-vue'
-  },
-  {
-    label: 'Tell me more about UnJS',
-    icon: 'i-logos-unjs'
-  },
-  {
-    label: 'Why should I consider VueUse?',
-    icon: 'i-logos-vueuse'
-  },
-  {
-    label: 'Tailwind CSS best practices',
-    icon: 'i-logos-tailwindcss-icon'
-  },
-  {
-    label: 'What is the weather in Bordeaux?',
-    icon: 'i-lucide-sun'
-  },
-  {
-    label: 'Show me a chart of sales data',
-    icon: 'i-lucide-line-chart'
-  }
-]
 </script>
 
 <template>
@@ -134,20 +103,6 @@ const quickChats = [
               <UChatPromptSubmit color="neutral" size="sm" :disabled="uploading" />
             </template>
           </UChatPrompt>
-
-          <div class="flex flex-wrap gap-2">
-            <UButton
-              v-for="quickChat in quickChats"
-              :key="quickChat.label"
-              :icon="quickChat.icon"
-              :label="quickChat.label"
-              size="sm"
-              color="neutral"
-              variant="outline"
-              class="rounded-full"
-              @click="createChat(quickChat.label)"
-            />
-          </div>
         </UContainer>
       </div>
     </template>
