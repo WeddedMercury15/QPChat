@@ -8,7 +8,7 @@ import { anthropic } from '@ai-sdk/anthropic'
 import type { GoogleLanguageModelOptions } from '@ai-sdk/google'
 // import { google } from '@ai-sdk/google'
 import type { OpenAILanguageModelResponsesOptions } from '@ai-sdk/openai'
-import { openai } from '@ai-sdk/openai'
+import { createOpenAI, openai } from '@ai-sdk/openai'
 
 defineRouteMeta({
   openAPI: {
@@ -17,8 +17,34 @@ defineRouteMeta({
   }
 })
 
+function extractUserText(message?: UIMessage): string {
+  if (!message || message.role !== 'user') {
+    return ''
+  }
+
+  const text = (message.parts || [])
+    .filter(part => part.type === 'text')
+    .map(part => ('text' in part ? (part.text || '') : ''))
+    .join(' ')
+    .trim()
+
+  return text
+}
+
+function createFallbackTitle(message?: UIMessage): string {
+  const text = extractUserText(message)
+  if (!text) {
+    return 'New chat'
+  }
+
+  // Keep title concise and avoid noisy punctuation.
+  return text.replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 30) || 'New chat'
+}
+
 export default defineEventHandler(async (event) => {
   const session = await getUserSession(event)
+  const config = useRuntimeConfig(event)
+  const hasYuanqiConfig = Boolean(config.yuanqiApiBase && config.yuanqiAppkey && config.yuanqiAssistantId)
 
   const { id } = await getValidatedRouterParams(event, z.object({
     id: z.string()
@@ -45,16 +71,18 @@ export default defineEventHandler(async (event) => {
   }
 
   if (!chat.title) {
-    const { text: title } = await generateText({
-      model: 'openai/gpt-4.1-nano',
-      system: `You are a title generator for a chat:
-          - Generate a short title based on the first user's message
-          - The title should be less than 30 characters long
-          - The title should be a summary of the user's message
-          - Do not use quotes (' or ") or colons (:) or any other punctuation
-          - Do not use markdown, just plain text`,
-      prompt: JSON.stringify(messages[0])
-    })
+    const title = hasYuanqiConfig
+      ? createFallbackTitle(messages[0])
+      : (await generateText({
+          model: 'openai/gpt-4.1-nano',
+          system: `You are a title generator for a chat:
+              - Generate a short title based on the first user's message
+              - The title should be less than 30 characters long
+              - The title should be a summary of the user's message
+              - Do not use quotes (' or ") or colons (:) or any other punctuation
+              - Do not use markdown, just plain text`,
+          prompt: JSON.stringify(messages[0])
+        })).text
 
     await db.update(schema.chats).set({ title }).where(eq(schema.chats.id, id as string))
   }
@@ -71,9 +99,7 @@ export default defineEventHandler(async (event) => {
 
   const stream = createUIMessageStream({
     execute: async ({ writer }) => {
-      const result = streamText({
-        model,
-        system: `You are a knowledgeable and helpful AI assistant. ${session.user?.username ? `The user's name is ${session.user.username}.` : ''} Your goal is to provide clear, accurate, and well-structured responses.
+      const systemPrompt = `You are a knowledgeable and helpful AI assistant. ${session.user?.username ? `The user's name is ${session.user.username}.` : ''} Your goal is to provide clear, accurate, and well-structured responses.
 
 **FORMATTING RULES (CRITICAL):**
 - ABSOLUTELY NO MARKDOWN HEADINGS: Never use #, ##, ###, ####, #####, or ######
@@ -94,37 +120,84 @@ export default defineEventHandler(async (event) => {
 - Be concise yet comprehensive
 - Use examples when helpful
 - Break down complex topics into digestible parts
-- Maintain a friendly, professional tone`,
-        messages: await convertToModelMessages(messages),
-        tools: {
-          chart: chartTool,
-          weather: weatherTool,
-          ...(model.startsWith('anthropic/') && { web_search: anthropic.tools.webSearch_20250305() }),
-          ...(model.startsWith('openai/') && { web_search: openai.tools.webSearch() })
-          // TODO: enable once AI SDK supports combining provider-defined tools with custom tools
-          // ...(model.startsWith('google/') && { google_search: google.tools.googleSearch({}) })
-        },
-        providerOptions: {
-          anthropic: {
-            thinking: {
-              type: 'enabled',
-              budgetTokens: 2048
-            }
-          } satisfies AnthropicLanguageModelOptions,
-          google: {
-            thinkingConfig: {
-              includeThoughts: true,
-              thinkingLevel: 'low'
-            }
-          } satisfies GoogleLanguageModelOptions,
-          openai: {
-            reasoningEffort: 'low',
-            reasoningSummary: 'detailed'
-          } satisfies OpenAILanguageModelResponsesOptions
-        },
-        stopWhen: stepCountIs(5),
-        experimental_transform: smoothStream()
-      })
+- Maintain a friendly, professional tone`
+      const modelMessages = await convertToModelMessages(messages)
+
+      const result = hasYuanqiConfig
+        ? streamText({
+            model: createOpenAI({
+              apiKey: config.yuanqiAppkey,
+              baseURL: `${config.yuanqiApiBase}/agent`,
+              fetch: async (input, init) => {
+                const body = JSON.parse(String(init?.body || '{}')) as {
+                  stream?: boolean
+                  messages?: Array<{ role: string, content: unknown }>
+                }
+                const mappedMessages = (body.messages || []).map((message) => {
+                  const parts = Array.isArray(message.content)
+                    ? message.content
+                    : [{
+                        type: 'text',
+                        text: typeof message.content === 'string' ? message.content : JSON.stringify(message.content)
+                      }]
+
+                  return {
+                    role: message.role,
+                    content: parts
+                  }
+                })
+
+                const yuanqiBody = {
+                  assistant_id: config.yuanqiAssistantId,
+                  user_id: session.user?.id || session.id,
+                  stream: body.stream ?? true,
+                  messages: mappedMessages
+                }
+
+                return fetch(input, {
+                  ...init,
+                  body: JSON.stringify(yuanqiBody)
+                })
+              }
+            }).chatModel('yuanqi-agent'),
+            system: systemPrompt,
+            messages: modelMessages,
+            stopWhen: stepCountIs(5),
+            experimental_transform: smoothStream()
+          })
+        : streamText({
+            model,
+            system: systemPrompt,
+            messages: modelMessages,
+            tools: {
+              chart: chartTool,
+              weather: weatherTool,
+              ...(model.startsWith('anthropic/') && { web_search: anthropic.tools.webSearch_20250305() }),
+              ...(model.startsWith('openai/') && { web_search: openai.tools.webSearch() })
+              // TODO: enable once AI SDK supports combining provider-defined tools with custom tools
+              // ...(model.startsWith('google/') && { google_search: google.tools.googleSearch({}) })
+            },
+            providerOptions: {
+              anthropic: {
+                thinking: {
+                  type: 'enabled',
+                  budgetTokens: 2048
+                }
+              } satisfies AnthropicLanguageModelOptions,
+              google: {
+                thinkingConfig: {
+                  includeThoughts: true,
+                  thinkingLevel: 'low'
+                }
+              } satisfies GoogleLanguageModelOptions,
+              openai: {
+                reasoningEffort: 'low',
+                reasoningSummary: 'detailed'
+              } satisfies OpenAILanguageModelResponsesOptions
+            },
+            stopWhen: stepCountIs(5),
+            experimental_transform: smoothStream()
+          })
 
       if (!chat.title) {
         writer.write({

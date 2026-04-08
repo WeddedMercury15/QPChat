@@ -33,6 +33,12 @@ export default defineNuxtConfig({
     blob: true
   },
 
+  runtimeConfig: {
+    yuanqiApiBase: process.env.YUANQI_API_BASE,
+    yuanqiAppkey: process.env.YUANQI_APPKEY,
+    yuanqiAssistantId: process.env.YUANQI_ASSISTANT_ID
+  },
+
   vite: {
     optimizeDeps: {
       include: ['striptags']
