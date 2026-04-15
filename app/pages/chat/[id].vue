@@ -5,7 +5,6 @@ import type { UIMessage } from 'ai'
 
 const route = useRoute()
 const toast = useToast()
-const { model } = useModels()
 const { csrf, headerName } = useCsrf()
 
 const { data } = await useFetch(`/api/chats/${route.params.id}`, {
@@ -38,9 +37,7 @@ const chat = new Chat({
   transport: new DefaultChatTransport({
     api: `/api/chats/${data.value?.id}`,
     headers: { [headerName]: csrf },
-    body: {
-      model: model.value
-    }
+    body: {}
   }),
   onData: (dataPart) => {
     if (dataPart.type === 'data-chat-title') {
@@ -238,8 +235,6 @@ onMounted(() => {
             <template #footer>
               <div class="flex items-center gap-1">
                 <ChatFileUploadButton :open="open" />
-
-                <ModelSelect />
               </div>
 
               <UChatPromptSubmit

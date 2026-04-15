@@ -1,14 +1,9 @@
 import type { UIMessage } from 'ai'
-import { convertToModelMessages, createUIMessageStream, createUIMessageStreamResponse, generateText, smoothStream, stepCountIs, streamText } from 'ai'
+import { convertToModelMessages, createUIMessageStream, createUIMessageStreamResponse, smoothStream, stepCountIs, streamText } from 'ai'
 import { db, schema } from 'hub:db'
 import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
-import type { AnthropicLanguageModelOptions } from '@ai-sdk/anthropic'
-import { anthropic } from '@ai-sdk/anthropic'
-import type { GoogleLanguageModelOptions } from '@ai-sdk/google'
-// import { google } from '@ai-sdk/google'
-import type { OpenAILanguageModelResponsesOptions } from '@ai-sdk/openai'
-import { createOpenAI, openai } from '@ai-sdk/openai'
+import { createOpenAI } from '@ai-sdk/openai'
 
 defineRouteMeta({
   openAPI: {
@@ -45,15 +40,18 @@ export default defineEventHandler(async (event) => {
   const session = await getUserSession(event)
   const config = useRuntimeConfig(event)
   const hasYuanqiConfig = Boolean(config.yuanqiApiBase && config.yuanqiAppkey && config.yuanqiAssistantId)
+  if (!hasYuanqiConfig) {
+    throw createError({
+      statusCode: 500,
+      statusMessage: 'Yuanqi is not configured. Please set YUANQI_API_BASE, YUANQI_APPKEY and YUANQI_ASSISTANT_ID.'
+    })
+  }
 
   const { id } = await getValidatedRouterParams(event, z.object({
     id: z.string()
   }).parse)
 
-  const { model, messages } = await readValidatedBody(event, z.object({
-    model: z.string().refine(value => MODELS.some(m => m.value === value), {
-      message: 'Invalid model'
-    }),
+  const { messages } = await readValidatedBody(event, z.object({
     messages: z.array(z.custom<UIMessage>())
   }).parse)
 
@@ -71,18 +69,7 @@ export default defineEventHandler(async (event) => {
   }
 
   if (!chat.title) {
-    const title = hasYuanqiConfig
-      ? createFallbackTitle(messages[0])
-      : (await generateText({
-          model: 'openai/gpt-4.1-nano',
-          system: `You are a title generator for a chat:
-              - Generate a short title based on the first user's message
-              - The title should be less than 30 characters long
-              - The title should be a summary of the user's message
-              - Do not use quotes (' or ") or colons (:) or any other punctuation
-              - Do not use markdown, just plain text`,
-          prompt: JSON.stringify(messages[0])
-        })).text
+    const title = createFallbackTitle(messages[0])
 
     await db.update(schema.chats).set({ title }).where(eq(schema.chats.id, id as string))
   }
@@ -123,81 +110,87 @@ export default defineEventHandler(async (event) => {
 - Maintain a friendly, professional tone`
       const modelMessages = await convertToModelMessages(messages)
 
-      const result = hasYuanqiConfig
-        ? streamText({
-            model: createOpenAI({
-              apiKey: config.yuanqiAppkey,
-              baseURL: `${config.yuanqiApiBase}/agent`,
-              fetch: async (input, init) => {
-                const body = JSON.parse(String(init?.body || '{}')) as {
-                  stream?: boolean
-                  messages?: Array<{ role: string, content: unknown }>
-                }
-                const mappedMessages = (body.messages || []).map((message) => {
-                  const parts = Array.isArray(message.content)
-                    ? message.content
-                    : [{
-                        type: 'text',
-                        text: typeof message.content === 'string' ? message.content : JSON.stringify(message.content)
-                      }]
+      const yuanqi = createOpenAI({
+          apiKey: config.yuanqiAppkey,
+          baseURL: `${config.yuanqiApiBase}/agent`,
+          fetch: async (input, init) => {
+            const body = JSON.parse(String(init?.body || '{}')) as {
+              stream?: boolean
+              messages?: Array<{ role: string, content: unknown }>
+            }
+            const toParts = (content: unknown) => {
+              if (Array.isArray(content)) {
+                return content
+              }
 
-                  return {
-                    role: message.role,
-                    content: parts
-                  }
-                })
+              return [{
+                type: 'text',
+                text: typeof content === 'string' ? content : JSON.stringify(content)
+              }]
+            }
 
-                const yuanqiBody = {
-                  assistant_id: config.yuanqiAssistantId,
-                  user_id: session.user?.id || session.id,
-                  stream: body.stream ?? true,
-                  messages: mappedMessages
-                }
+            // Yuanqi requires user/assistant turns and first role must be user.
+            const normalized = (body.messages || [])
+              .filter(message => message.role === 'user' || message.role === 'assistant')
+              .map(message => ({
+                role: message.role as 'user' | 'assistant',
+                content: toParts(message.content)
+              }))
 
-                return fetch(input, {
-                  ...init,
-                  body: JSON.stringify(yuanqiBody)
+            while (normalized.length && normalized[0]!.role !== 'user') {
+              normalized.shift()
+            }
+
+            const mergedMessages = normalized.reduce<Array<{ role: 'user' | 'assistant', content: unknown[] }>>((acc, current) => {
+              const prev = acc[acc.length - 1]
+              if (prev && prev.role === current.role) {
+                prev.content.push(...current.content)
+              } else {
+                acc.push({
+                  role: current.role,
+                  content: [...current.content]
                 })
               }
-            }).chatModel('yuanqi-agent'),
-            system: systemPrompt,
-            messages: modelMessages,
-            stopWhen: stepCountIs(5),
-            experimental_transform: smoothStream()
-          })
-        : streamText({
-            model,
-            system: systemPrompt,
-            messages: modelMessages,
-            tools: {
-              chart: chartTool,
-              weather: weatherTool,
-              ...(model.startsWith('anthropic/') && { web_search: anthropic.tools.webSearch_20250305() }),
-              ...(model.startsWith('openai/') && { web_search: openai.tools.webSearch() })
-              // TODO: enable once AI SDK supports combining provider-defined tools with custom tools
-              // ...(model.startsWith('google/') && { google_search: google.tools.googleSearch({}) })
-            },
-            providerOptions: {
-              anthropic: {
-                thinking: {
-                  type: 'enabled',
-                  budgetTokens: 2048
-                }
-              } satisfies AnthropicLanguageModelOptions,
-              google: {
-                thinkingConfig: {
-                  includeThoughts: true,
-                  thinkingLevel: 'low'
-                }
-              } satisfies GoogleLanguageModelOptions,
-              openai: {
-                reasoningEffort: 'low',
-                reasoningSummary: 'detailed'
-              } satisfies OpenAILanguageModelResponsesOptions
-            },
-            stopWhen: stepCountIs(5),
-            experimental_transform: smoothStream()
-          })
+              return acc
+            }, [])
+
+            if (mergedMessages.length === 0) {
+              throw createError({
+                statusCode: 400,
+                statusMessage: 'Invalid messages for Yuanqi API after normalization.'
+              })
+            }
+
+            const mappedMessages = mergedMessages
+
+            if (systemPrompt.trim()) {
+              mappedMessages[0]!.content.unshift({
+                type: 'text',
+                text: `System instruction:\n${systemPrompt}`
+              })
+            }
+
+            const yuanqiBody = {
+              assistant_id: config.yuanqiAssistantId,
+              user_id: session.user?.id || session.id,
+              stream: body.stream ?? true,
+              messages: mappedMessages
+            }
+
+            return fetch(input, {
+              ...init,
+              body: JSON.stringify(yuanqiBody)
+            })
+          }
+        })
+
+      const result = streamText({
+        model: yuanqi.chat('yuanqi-agent'),
+        system: systemPrompt,
+        messages: modelMessages,
+        stopWhen: stepCountIs(5),
+        experimental_transform: smoothStream()
+      })
 
       if (!chat.title) {
         writer.write({

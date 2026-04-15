@@ -96,8 +96,6 @@ async function onSubmit() {
             <template #footer>
               <div class="flex items-center gap-1">
                 <ChatFileUploadButton :open="open" />
-
-                <ModelSelect />
               </div>
 
               <UChatPromptSubmit color="neutral" size="sm" :disabled="uploading" />
