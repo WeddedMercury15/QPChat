@@ -19,9 +19,9 @@ const icon = computed(() => {
 
 const message = computed(() => {
   return ({
-    'input-available': 'Loading weather data...',
-    'output-error': 'Can\'t get weather data, please try again later'
-  })[props.invocation.state as string] || 'Loading weather data...'
+    'input-available': '正在加载天气数据...',
+    'output-error': '获取天气数据失败，请稍后重试'
+  })[props.invocation.state as string] || '正在加载天气数据...'
 })
 </script>
 
@@ -93,7 +93,7 @@ const message = computed(() => {
 
       <div v-else class="flex items-center justify-center py-3">
         <div class="text-xs">
-          No forecast available
+          暂无预报数据
         </div>
       </div>
     </template>

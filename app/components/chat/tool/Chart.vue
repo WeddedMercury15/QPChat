@@ -18,9 +18,9 @@ const icon = computed(() => {
 
 const message = computed(() => {
   return ({
-    'input-available': 'Generating chart...',
-    'output-error': 'Can\'t generate chart, please try again'
-  })[props.invocation.state as string] || 'Loading chart data...'
+    'input-available': '正在生成图表...',
+    'output-error': '图表生成失败，请重试'
+  })[props.invocation.state as string] || '正在加载图表数据...'
 })
 
 const xFormatter = (invocation: ChartUIToolInvocation) => {
@@ -42,7 +42,7 @@ const categories = (invocation: ChartUIToolInvocation): Record<string, BulletLeg
 }
 
 const formatValue = (value: string | number | undefined): string => {
-  if (value === undefined || value === null) return 'N/A'
+  if (value === undefined || value === null) return '无数据'
   if (typeof value === 'string') return value
 
   if (Number.isInteger(value)) {

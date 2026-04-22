@@ -70,7 +70,7 @@ async function saveEdit(message: UIMessage, text: string) {
       body: { messageId: message.id, type: 'edit' }
     })
   } catch {
-    toast.add({ description: 'Failed to save edit.', icon: 'i-lucide-alert-circle', color: 'error' })
+    toast.add({ description: '保存编辑失败。', icon: 'i-lucide-alert-circle', color: 'error' })
     return
   }
 
@@ -86,7 +86,7 @@ async function regenerateMessage(message: UIMessage) {
       body: { messageId: message.id, type: 'regenerate' }
     })
   } catch {
-    toast.add({ description: 'Failed to regenerate.', icon: 'i-lucide-alert-circle', color: 'error' })
+    toast.add({ description: '重新生成失败。', icon: 'i-lucide-alert-circle', color: 'error' })
     return
   }
 
@@ -120,7 +120,7 @@ async function vote(message: UIMessage, isUpvoted: boolean) {
   } catch {
     votes.value = snapshot
     toast.add({
-      description: 'Failed to save vote',
+      description: '保存评价失败',
       icon: 'i-lucide-alert-circle',
       color: 'error'
     })
@@ -166,7 +166,7 @@ onMounted(() => {
               <div class="flex items-center gap-1.5">
                 <ChatIndicator />
 
-                <UChatShimmer text="Thinking..." class="text-sm" />
+                <UChatShimmer text="思考中..." class="text-sm" />
               </div>
             </template>
 
@@ -195,6 +195,7 @@ onMounted(() => {
           <UChatPrompt
             v-if="isOwner"
             v-model="input"
+            placeholder="请输入你的消息..."
             :error="chat.error"
             variant="subtle"
             class="sticky bottom-0 [view-transition-name:chat-prompt] rounded-b-none z-10"
@@ -217,6 +218,6 @@ onMounted(() => {
   </UDashboardPanel>
 
   <UContainer v-else class="flex-1 flex flex-col gap-4 sm:gap-6">
-    <UError :error="{ statusMessage: 'Chat not found', statusCode: 404 }" class="min-h-full" />
+    <UError :error="{ statusMessage: '对话不存在', statusCode: 404 }" class="min-h-full" />
   </UContainer>
 </template>

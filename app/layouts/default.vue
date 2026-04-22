@@ -10,8 +10,8 @@ const open = ref(false)
 
 const deleteModal = overlay.create(LazyModalConfirm, {
   props: {
-    title: 'Delete chat',
-    description: 'Are you sure you want to delete this chat? This cannot be undone.'
+    title: '删除对话',
+    description: '确定要删除这条对话吗？此操作无法撤销。'
   }
 })
 
@@ -19,7 +19,7 @@ const { data: chats, refresh: refreshChats } = await useFetch('/api/chats', {
   key: 'chats',
   transform: data => data.map(chat => ({
     id: chat.id,
-    label: chat.title || 'Untitled',
+    label: chat.title || '未命名',
     to: `/chat/${chat.id}`,
     icon: 'i-lucide-message-circle',
     createdAt: chat.createdAt
@@ -44,7 +44,7 @@ const items = computed(() => groups.value?.flatMap((group) => {
     ...item,
     slot: 'chat' as const,
     icon: undefined,
-    class: item.label === 'Untitled' ? 'text-muted' : ''
+    class: item.label === '未命名' ? 'text-muted' : ''
   }))]
 }))
 
@@ -61,8 +61,8 @@ async function deleteChat(id: string) {
   })
 
   toast.add({
-    title: 'Chat deleted',
-    description: 'Your chat has been deleted',
+    title: '已删除对话',
+    description: '该对话已被删除',
     icon: 'i-lucide-trash'
   })
 
@@ -93,7 +93,7 @@ defineShortcuts({
       <template #header="{ collapsed }">
         <NuxtLink to="/" class="flex items-end gap-0.5">
           <Logo class="h-8 w-auto shrink-0" />
-          <span v-if="!collapsed" class="text-xl font-bold text-highlighted">Chat</span>
+          <span v-if="!collapsed" class="text-xl font-bold text-highlighted">聊天</span>
         </NuxtLink>
 
         <div v-if="!collapsed" class="flex items-center gap-1.5 ms-auto">
@@ -104,7 +104,7 @@ defineShortcuts({
       <template #default="{ collapsed }">
         <div class="flex flex-col gap-1.5">
           <UButton
-            v-bind="collapsed ? { icon: 'i-lucide-plus' } : { label: 'New chat' }"
+            v-bind="collapsed ? { icon: 'i-lucide-plus' } : { label: '新建对话' }"
             variant="soft"
             block
             to="/"
@@ -131,7 +131,7 @@ defineShortcuts({
                 variant="ghost"
                 size="xs"
                 class="text-muted hover:text-primary hover:bg-accented/50 focus-visible:bg-accented/50 p-0.5"
-                aria-label="Delete chat"
+                aria-label="删除对话"
                 tabindex="-1"
                 @click.stop.prevent="deleteChat((item as any).id)"
               />
@@ -144,11 +144,11 @@ defineShortcuts({
     </UDashboardSidebar>
 
     <UDashboardSearch
-      placeholder="Search chats..."
+      placeholder="搜索对话..."
       :groups="[{
         id: 'links',
         items: [{
-          label: 'New chat',
+          label: '新建对话',
           to: '/',
           icon: 'i-lucide-square-pen'
         }]

@@ -7,9 +7,9 @@ const { user } = useUserSession()
 
 const greeting = computed(() => {
   const hour = new Date().getHours()
-  let timeGreeting = 'Good evening'
-  if (hour < 12) timeGreeting = 'Good morning'
-  else if (hour < 18) timeGreeting = 'Good afternoon'
+  let timeGreeting = '晚上好'
+  if (hour < 12) timeGreeting = '早上好'
+  else if (hour < 18) timeGreeting = '下午好'
 
   const name = user.value?.name?.split(' ')[0] || user.value?.username
 
@@ -61,6 +61,7 @@ async function onSubmit() {
 
         <UChatPrompt
           v-model="input"
+          placeholder="请输入你的消息..."
           :status="loading ? 'streaming' : 'ready'"
           class="[view-transition-name:chat-prompt]"
           variant="subtle"
