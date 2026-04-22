@@ -25,7 +25,6 @@ Full-featured AI Chatbot Nuxt application with chat history, collapsible sidebar
 - 📊 **Charts and weather** tool calling with rich UI rendering
 - 🙋 **Anonymous sessions** via [nuxt-auth-utils](https://github.com/atinux/nuxt-auth-utils) for per-session chat ownership
 - 💾 **Chat history persistence** using SQLite database ([Turso](https://turso.tech) in production) and [Drizzle ORM](https://orm.drizzle.team)
-- 📎 **File uploads** with drag & drop using [NuxtHub Blob](https://hub.nuxt.com/docs/blob)
 - ✨ **Markdown rendering** with streaming code highlighting via [Comark](https://comark.dev)
 
 ## Quick Start
@@ -77,24 +76,6 @@ Set:
 ```bash
 NUXT_SESSION_PASSWORD=<your-password-minimum-32-characters>
 ```
-
-### Blob Storage (Optional)
-
-This template uses [NuxtHub Blob](https://hub.nuxt.com/docs/blob) for file uploads, which supports multiple storage drivers:
-
-- **Local filesystem** (default for development, stored in `.data/blob`)
-- **[Vercel Blob](https://vercel.com/docs/vercel-blob)** (auto-configured when deployed to Vercel)
-- **[Cloudflare R2](https://hub.nuxt.com/docs/blob#set-a-driver)** (when deployed to Cloudflare)
-- **[Amazon S3](https://hub.nuxt.com/docs/blob#set-a-driver)** (with manual configuration)
-
-For **Vercel Blob**, assign a Blob Store to your project from the Vercel dashboard (Project → Storage), then set the token for local development:
-
-```bash
-BLOB_READ_WRITE_TOKEN=<your-vercel-blob-token>
-```
-
-> [!NOTE]
-> See the [NuxtHub Blob documentation](https://hub.nuxt.com/docs/blob#set-a-driver) for configuring other storage drivers.
 
 ## Development Server
 
