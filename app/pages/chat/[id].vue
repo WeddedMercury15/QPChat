@@ -203,13 +203,15 @@ onMounted(() => {
             @submit="handleSubmit"
           >
             <template #footer>
-              <UChatPromptSubmit
-                :status="chat.status"
-                color="neutral"
-                size="sm"
-                @stop="chat.stop()"
-                @reload="chat.regenerate()"
-              />
+              <div class="flex w-full justify-end">
+                <UChatPromptSubmit
+                  :status="chat.status"
+                  color="neutral"
+                  size="sm"
+                  @stop="chat.stop()"
+                  @reload="chat.regenerate()"
+                />
+              </div>
             </template>
           </UChatPrompt>
         </UContainer>

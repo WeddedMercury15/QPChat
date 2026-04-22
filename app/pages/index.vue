@@ -69,7 +69,9 @@ async function onSubmit() {
           @submit="onSubmit"
         >
           <template #footer>
-            <UChatPromptSubmit color="neutral" size="sm" />
+            <div class="flex w-full justify-end">
+              <UChatPromptSubmit color="neutral" size="sm" />
+            </div>
           </template>
         </UChatPrompt>
       </UContainer>
