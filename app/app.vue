@@ -17,8 +17,8 @@ useHead({
   }
 })
 
-const title = 'Nuxt AI Chatbot template'
-const description = 'A full-featured, hackable Nuxt AI chatbot template made with Nuxt UI.'
+const title = '红色潮路智能体'
+const description = '聚焦中央红色交通线的历史讲解与研学支持，提供路线梳理、史实解读与学习辅助。'
 
 useSeoMeta({
   title,
